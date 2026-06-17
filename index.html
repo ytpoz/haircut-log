@@ -16,7 +16,7 @@
                 <i data-lucide="scissors" class="w-5 h-5 md:w-6 md:h-6 text-indigo-600"></i>
                 Haircut Log
             </h1>
-            <p class="text-xs md:text-sm text-slate-400 mt-1">散髪のタイミングをスマートに管理</p>
+            <p class="text-xs md:text-sm text-slate-400 mt-1">散髪のタイミングをスマートに管理（クラウド同期）</p>
         </header>
 
         <div class="flex flex-col gap-8 md:grid md:grid-cols-2 md:gap-8 md:items-start">
@@ -58,114 +58,6 @@
         </div>
     </main>
 
-    <script>
-        const STORAGE_KEY = 'haircut_logs';
-        const INITIAL_DATA = ["2026-06-17"];
-
-        const logBtn = document.getElementById('log-btn');
-        const daysSinceEl = document.getElementById('days-since');
-        const averageCycleEl = document.getElementById('average-cycle');
-        const historyListEl = document.getElementById('history-list');
-
-        function loadLogs() {
-            const stored = localStorage.getItem(STORAGE_KEY);
-            if (!stored) {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_DATA));
-                return INITIAL_DATA;
-            }
-            return JSON.parse(stored);
-        }
-
-        function saveLogs(logs) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
-        }
-
-        function formatDate(dateStr) {
-            const d = new Date(dateStr);
-            return `${d.getFullYear()}年${String(d.getMonth() + 1).padStart(2, '0')}月${String(d.getDate()).padStart(2, '0')}日`;
-        }
-
-        function updateUI() {
-            const logs = loadLogs().sort((a, b) => new Date(b) - new Date(a));
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            if (logs.length > 0) {
-                const latestLog = new Date(logs[0]);
-                latestLog.setHours(0, 0, 0, 0);
-                const diffTime = today - latestLog;
-                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                daysSinceEl.textContent = diffDays >= 0 ? diffDays : 0;
-            } else {
-                daysSinceEl.textContent = '--';
-            }
-
-            if (logs.length >= 2) {
-                const sortedOldest = [...logs].reverse();
-                let totalDays = 0;
-                for (let i = 1; i < sortedOldest.length; i++) {
-                    const prev = new Date(sortedOldest[i - 1]);
-                    const current = new Date(sortedOldest[i]);
-                    totalDays += Math.floor((current - prev) / (1000 * 60 * 60 * 24));
-                }
-                const avg = Math.round(totalDays / (sortedOldest.length - 1));
-                averageCycleEl.textContent = avg;
-            } else {
-                averageCycleEl.textContent = 'データ不足';
-            }
-
-            historyListEl.innerHTML = '';
-            if (logs.length === 0) {
-                historyListEl.innerHTML = `<li class="p-4 text-center text-xs text-slate-400">履歴がありません</li>`;
-            } else {
-                logs.forEach((logStr, index) => {
-                    const li = document.createElement('li');
-                    li.className = "flex items-center justify-between p-3.5 text-sm bg-white hover:bg-slate-50 transition-colors";
-                    
-                    const isLatest = index === 0;
-                    const badge = isLatest ? `<span class="ml-2 text-[10px] bg-indigo-50 text-indigo-600 font-bold px-1.5 py-0.5 rounded-sm">最新</span>` : '';
-
-                    li.innerHTML = `
-                        <div class="flex items-center gap-2">
-                            <span class="text-slate-700 font-medium">${formatDate(logStr)}</span>
-                            ${badge}
-                        </div>
-                        <button onclick="deleteLog('${logStr}')" class="text-slate-300 hover:text-rose-500 p-1 rounded-sm transition-colors cursor-pointer" title="削除">
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>
-                    `;
-                    historyListEl.appendChild(li);
-                });
-            }
-            lucide.createIcons();
-        }
-
-        logBtn.addEventListener('click', () => {
-            const todayStr = new Date().toISOString().split('T')[0];
-            const logs = loadLogs();
-
-            if (logs.includes(todayStr)) {
-                alert('本日の記録は既に存在します。');
-                return;
-            }
-
-            logs.push(todayStr);
-            saveLogs(logs);
-            updateUI();
-        });
-
-        window.deleteLog = function(dateStr) {
-            if (confirm(`${formatDate(dateStr)} の記録を削除しますか？`)) {
-                let logs = loadLogs();
-                logs = logs.filter(log => log !== dateStr);
-                saveLogs(logs);
-                updateUI();
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            updateUI();
-        });
-    </script>
-</body>
-</html>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, getDocs } from "
