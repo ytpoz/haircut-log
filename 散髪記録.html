@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Haircut Log - 散髪周期管理</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col items-center justify-center p-4 md:p-8 antialiased">
+
+    <main class="w-full max-w-md md:max-w-3xl lg:max-w-4xl bg-white rounded-3xl shadow-xs border border-slate-100 p-6 md:p-8 my-4 flex flex-col gap-6 md:gap-8 transition-all duration-300">
+        
+        <header class="text-center md:border-b md:border-slate-100 md:pb-4">
+            <h1 class="text-xl md:text-2xl font-bold tracking-tight text-slate-900 flex items-center justify-center gap-2">
+                <i data-lucide="scissors" class="w-5 h-5 md:w-6 md:h-6 text-indigo-600"></i>
+                Haircut Log
+            </h1>
+            <p class="text-xs md:text-sm text-slate-400 mt-1">散髪のタイミングをスマートに管理</p>
+        </header>
+
+        <div class="flex flex-col gap-8 md:grid md:grid-cols-2 md:gap-8 md:items-start">
+            
+            <div class="flex flex-col gap-6 md:gap-8">
+                <section class="flex flex-col items-center justify-center py-2 md:py-4">
+                    <button id="log-btn" class="w-40 h-40 md:w-44 md:h-44 rounded-full bg-indigo-600 text-white font-bold text-lg shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all duration-200 cursor-pointer flex flex-col items-center justify-center gap-2 border-4 border-white ring-4 ring-indigo-50">
+                        <i data-lucide="calendar-plus" class="w-8 h-8 md:w-9 md:h-9"></i>
+                        <span>散髪した！</span>
+                    </button>
+                </section>
+
+                <section class="grid grid-cols-2 gap-4">
+                    <div class="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-50 flex flex-col gap-1">
+                        <span class="text-xs font-medium text-indigo-600 flex items-center gap-1">
+                            <i data-lucide="clock" class="w-3.5 h-3.5"></i> 前回からの経過
+                        </span>
+                        <p class="text-2xl md:text-3xl font-bold text-slate-900"><span id="days-since">--</span> <span class="text-sm font-normal text-slate-500">日</span></p>
+                    </div>
+                    <div class="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-50 flex flex-col gap-1">
+                        <span class="text-xs font-medium text-emerald-600 flex items-center gap-1">
+                            <i data-lucide="activity" class="w-3.5 h-3.5"></i> 平均周期
+                        </span>
+                        <p class="text-2xl md:text-3xl font-bold text-slate-900"><span id="average-cycle">--</span> <span class="text-sm font-normal text-slate-500">日</span></p>
+                    </div>
+                </section>
+            </div>
+
+            <section class="flex flex-col gap-3 h-full md:border-l md:border-slate-100 md:pl-8">
+                <h2 class="text-sm font-bold text-slate-900 flex items-center gap-1.5 px-1">
+                    <i data-lucide="history" class="w-4 h-4 text-slate-500"></i>
+                    過去の履歴
+                </h2>
+                <div class="border border-slate-100 rounded-2xl overflow-hidden bg-slate-50/30 max-h-60 md:max-h-[320px] overflow-y-auto">
+                    <ul id="history-list" class="divide-y divide-slate-100">
+                        </ul>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        const STORAGE_KEY = 'haircut_logs';
+        const INITIAL_DATA = ["2026-06-17"];
+
+        const logBtn = document.getElementById('log-btn');
+        const daysSinceEl = document.getElementById('days-since');
+        const averageCycleEl = document.getElementById('average-cycle');
+        const historyListEl = document.getElementById('history-list');
+
+        function loadLogs() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (!stored) {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_DATA));
+                return INITIAL_DATA;
+            }
+            return JSON.parse(stored);
+        }
+
+        function saveLogs(logs) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+        }
+
+        function formatDate(dateStr) {
+            const d = new Date(dateStr);
+            return `${d.getFullYear()}年${String(d.getMonth() + 1).padStart(2, '0')}月${String(d.getDate()).padStart(2, '0')}日`;
+        }
+
+        function updateUI() {
+            const logs = loadLogs().sort((a, b) => new Date(b) - new Date(a));
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (logs.length > 0) {
+                const latestLog = new Date(logs[0]);
+                latestLog.setHours(0, 0, 0, 0);
+                const diffTime = today - latestLog;
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                daysSinceEl.textContent = diffDays >= 0 ? diffDays : 0;
+            } else {
+                daysSinceEl.textContent = '--';
+            }
+
+            if (logs.length >= 2) {
+                const sortedOldest = [...logs].reverse();
+                let totalDays = 0;
+                for (let i = 1; i < sortedOldest.length; i++) {
+                    const prev = new Date(sortedOldest[i - 1]);
+                    const current = new Date(sortedOldest[i]);
+                    totalDays += Math.floor((current - prev) / (1000 * 60 * 60 * 24));
+                }
+                const avg = Math.round(totalDays / (sortedOldest.length - 1));
+                averageCycleEl.textContent = avg;
+            } else {
+                averageCycleEl.textContent = 'データ不足';
+            }
+
+            historyListEl.innerHTML = '';
+            if (logs.length === 0) {
+                historyListEl.innerHTML = `<li class="p-4 text-center text-xs text-slate-400">履歴がありません</li>`;
+            } else {
+                logs.forEach((logStr, index) => {
+                    const li = document.createElement('li');
+                    li.className = "flex items-center justify-between p-3.5 text-sm bg-white hover:bg-slate-50 transition-colors";
+                    
+                    const isLatest = index === 0;
+                    const badge = isLatest ? `<span class="ml-2 text-[10px] bg-indigo-50 text-indigo-600 font-bold px-1.5 py-0.5 rounded-sm">最新</span>` : '';
+
+                    li.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-700 font-medium">${formatDate(logStr)}</span>
+                            ${badge}
+                        </div>
+                        <button onclick="deleteLog('${logStr}')" class="text-slate-300 hover:text-rose-500 p-1 rounded-sm transition-colors cursor-pointer" title="削除">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    `;
+                    historyListEl.appendChild(li);
+                });
+            }
+            lucide.createIcons();
+        }
+
+        logBtn.addEventListener('click', () => {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const logs = loadLogs();
+
+            if (logs.includes(todayStr)) {
+                alert('本日の記録は既に存在します。');
+                return;
+            }
+
+            logs.push(todayStr);
+            saveLogs(logs);
+            updateUI();
+        });
+
+        window.deleteLog = function(dateStr) {
+            if (confirm(`${formatDate(dateStr)} の記録を削除しますか？`)) {
+                let logs = loadLogs();
+                logs = logs.filter(log => log !== dateStr);
+                saveLogs(logs);
+                updateUI();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateUI();
+        });
+    </script>
+</body>
+</html>
