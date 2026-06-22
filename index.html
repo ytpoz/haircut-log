@@ -51,8 +51,7 @@
                     過去の履歴
                 </h2>
                 <div class="border border-slate-100 rounded-2xl overflow-hidden bg-slate-50/30 max-h-60 md:max-h-[320px] overflow-y-auto">
-                    <ul id="history-list" class="divide-y divide-slate-100">
-                        </ul>
+                    <ul id="history-list" class="divide-y divide-slate-100"></ul>
                 </div>
             </section>
         </div>
@@ -62,10 +61,11 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Firebase設定
+        // 提供された最新のFirebase設定（databaseURLを含む）
         const firebaseConfig = {
             apiKey: "AIzaSyA8Pl3YxlSfMrkBtCQ6E2XqYCA5rAF6NI8",
             authDomain: "haircut-log.firebaseapp.com",
+            databaseURL: "https://haircut-log-default-rtdb.firebaseio.com",
             projectId: "haircut-log",
             storageBucket: "haircut-log.firebasestorage.app",
             messagingSenderId: "440942870937",
@@ -92,7 +92,7 @@
             return `${year}-${month}-${date}`;
         }
 
-        // モックデータ初期登録チェック (2026年6月17日のデータがない場合のみ追加)
+        // 初期データチェック (空の場合は初期データを投入)
         async function checkAndInitMockData() {
             const snapshot = await getDocs(logsCollection);
             if (snapshot.empty) {
@@ -106,7 +106,7 @@
             return `${d.getFullYear()}年${String(d.getMonth() + 1).padStart(2, '0')}月${String(d.getDate()).padStart(2, '0')}日`;
         }
 
-        // Firebaseからリアルタイムにデータを取得してUIを更新
+        // Firestoreからリアルタイムにデータを取得してUIを更新
         const q = query(logsCollection, orderBy("date", "desc"));
         onSnapshot(q, (snapshot) => {
             const logs = [];
@@ -172,7 +172,7 @@
 
         // 新しい記録の追加
         logBtn.addEventListener('click', async () => {
-            const todayStr = getLocalDateString(); // 日本時間の今日の日付
+            const todayStr = getLocalDateString();
             
             const snapshot = await getDocs(logsCollection);
             let isDuplicate = false;
@@ -195,7 +195,7 @@
             }
         }
 
-        // 初期化
+        // 初期化実行
         checkAndInitMockData();
     </script>
 </body>
