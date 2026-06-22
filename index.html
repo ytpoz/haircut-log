@@ -59,9 +59,10 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        // Realtime Database用のモジュールをインポート
+        import { getDatabase, ref, push, onValue, remove, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // 提供された最新のFirebase設定（databaseURLを含む）
+        // Firebase設定
         const firebaseConfig = {
             apiKey: "AIzaSyA8Pl3YxlSfMrkBtCQ6E2XqYCA5rAF6NI8",
             authDomain: "haircut-log.firebaseapp.com",
@@ -72,10 +73,10 @@
             appId: "1:440942870937:web:9e12b36c7b8cd3a5fb1308"
         };
 
-        // Firebaseの初期化
+        // FirebaseとRealtime Databaseの初期化
         const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const logsCollection = collection(db, "haircut_logs");
+        const db = getDatabase(app);
+        const logsRef = ref(db, "haircut_logs");
 
         // DOMの取得
         const logBtn = document.getElementById('log-btn');
@@ -83,7 +84,7 @@
         const averageCycleEl = document.getElementById('average-cycle');
         const historyListEl = document.getElementById('history-list');
 
-        // 日本時間の今日の日付（YYYY-MM-DD）を取得する関数
+        // 日本時間の今日の日付（YYYY-MM-DD）を取得
         function getLocalDateString() {
             const now = new Date();
             const year = now.getFullYear();
@@ -94,9 +95,9 @@
 
         // 初期データチェック (空の場合は初期データを投入)
         async function checkAndInitMockData() {
-            const snapshot = await getDocs(logsCollection);
-            if (snapshot.empty) {
-                await addDoc(logsCollection, { date: "2026-06-17" });
+            const snapshot = await get(logsRef);
+            if (!snapshot.exists()) {
+                await push(logsRef, { date: "2026-06-17" });
             }
         }
 
@@ -106,13 +107,17 @@
             return `${d.getFullYear()}年${String(d.getMonth() + 1).padStart(2, '0')}月${String(d.getDate()).padStart(2, '0')}日`;
         }
 
-        // Firestoreからリアルタイムにデータを取得してUIを更新
-        const q = query(logsCollection, orderBy("date", "desc"));
-        onSnapshot(q, (snapshot) => {
+        // Realtime Databaseからリアルタイムにデータを取得してUIを更新
+        onValue(logsRef, (snapshot) => {
             const logs = [];
-            snapshot.forEach((doc) => {
-                logs.push({ id: doc.id, date: doc.data().date });
-            });
+            if (snapshot.exists()) {
+                snapshot.forEach((childSnapshot) => {
+                    logs.push({ id: childSnapshot.key, date: childSnapshot.val().date });
+                });
+            }
+
+            // 日付の降順（新しい順）に並び替え
+            logs.sort((a, b) => new Date(b.date) - new Date(a.date));
 
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -174,24 +179,27 @@
         logBtn.addEventListener('click', async () => {
             const todayStr = getLocalDateString();
             
-            const snapshot = await getDocs(logsCollection);
+            const snapshot = await get(logsRef);
             let isDuplicate = false;
-            snapshot.forEach((doc) => {
-                if (doc.data().date === todayStr) isDuplicate = true;
-            });
+            if (snapshot.exists()) {
+                snapshot.forEach((childSnapshot) => {
+                    if (childSnapshot.val().date === todayStr) isDuplicate = true;
+                });
+            }
 
             if (isDuplicate) {
                 alert('本日の記録は既に存在します。');
                 return;
             }
 
-            await addDoc(logsCollection, { date: todayStr });
+            await push(logsRef, { date: todayStr });
         });
 
         // 履歴の削除機能
         window.deleteLog = async function(id, dateStr) {
             if (confirm(`${formatDate(dateStr)} の記録を削除しますか？`)) {
-                await deleteDoc(doc(db, "haircut_logs", id));
+                const itemRef = ref(db, `haircut_logs/${id}`);
+                await remove(itemRef);
             }
         }
 
